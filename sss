@@ -13,15 +13,10 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 local RootPart = Character:WaitForChild("HumanoidRootPart")
 
--- ====================== MENU STRUCTURE ======================
+-- ====================== MENU ======================
 local MainMenu = {
-    {name = "Movement"},
-    {name = "Visual"},
-    {name = "Player"},
-    {name = "OP"},
-    {name = "Fun"},
-    {name = "Spawn"},
-    {name = "Remove Menu"}
+    {name = "Movement"}, {name = "Visual"}, {name = "Player"},
+    {name = "OP"}, {name = "Fun"}, {name = "Spawn"}, {name = "Remove Menu"}
 }
 
 local SubMenus = {
@@ -59,7 +54,7 @@ local SubMenus = {
     }
 }
 
--- Menu State
+-- State
 local currentPage = 1
 local inSubMenu = false
 local currentSub = ""
@@ -93,7 +88,7 @@ Overlay.TextXAlignment = Enum.TextXAlignment.Left
 Overlay.TextYAlignment = Enum.TextYAlignment.Top
 Overlay.Parent = ScreenGui
 
--- Laser Pointer
+-- Laser
 local laserBeam, laserDot = nil, nil
 
 local function createLaserPointer()
@@ -101,7 +96,6 @@ local function createLaserPointer()
     if laserDot then laserDot:Destroy() end
 
     laserBeam = Instance.new("Part")
-    laserBeam.Name = "KyoshadeLaserBeam"
     laserBeam.Anchored = true
     laserBeam.CanCollide = false
     laserBeam.Transparency = 0.3
@@ -111,7 +105,6 @@ local function createLaserPointer()
     laserBeam.Parent = Workspace
 
     laserDot = Instance.new("Part")
-    laserDot.Name = "KyoshadeLaserDot"
     laserDot.Anchored = true
     laserDot.CanCollide = false
     laserDot.Transparency = 0.2
@@ -128,7 +121,6 @@ RunService.RenderStepped:Connect(function()
         if laserDot and laserDot.Parent then laserDot.Visible = false end
         return
     end
-
     if laserBeam and laserDot and laserBeam.Parent and laserDot.Parent then
         local origin = Camera.CFrame.Position
         local direction = (Mouse.Hit.Position - origin).Unit * 1000
@@ -279,16 +271,14 @@ end
 local function getAllModels()
     spawnList = {}
     for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
-        if v:IsA("Model") and v.PrimaryPart then
-            table.insert(spawnList, v)
-        end
+        if v:IsA("Model") and v.PrimaryPart then table.insert(spawnList, v) end
     end
     for _, v in ipairs(Workspace:GetDescendants()) do
         if v:IsA("Model") and v.PrimaryPart and not v:FindFirstAncestor("Players") then
             table.insert(spawnList, v)
         end
     end
-    print("Kyoshade: Found " .. #spawnList .. " models")
+    print("Found " .. #spawnList .. " models")
 end
 
 local function spawnModelAtMouse()
@@ -297,6 +287,7 @@ local function spawnModelAtMouse()
         return 
     end
     local model = spawnList[selectedModelIndex]
+    if not model or not model.PrimaryPart then return end
     local clone = model:Clone()
     clone.Parent = Workspace
     local pos = Mouse.Hit.Position + Vector3.new(0, 5, 0)
@@ -373,7 +364,11 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         end
     else
         local submenu = SubMenus[currentSub]
-        if not submenu then return end
+        if not submenu then 
+            inSubMenu = false 
+            UpdateOverlay()
+            return 
+        end
 
         if input.KeyCode == Enum.KeyCode.Up then
             selectedIndex = math.max(1, selectedIndex - 1)
@@ -381,12 +376,14 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             selectedIndex = math.min(#submenu, selectedIndex + 1)
         elseif input.KeyCode == Enum.KeyCode.Left and currentSub == "Spawn" then
             selectedModelIndex = math.max(1, selectedModelIndex - 1)
-            print("← Changed to model #" .. selectedModelIndex)
+            print("← Model #" .. selectedModelIndex)
         elseif input.KeyCode == Enum.KeyCode.Right and currentSub == "Spawn" then
             selectedModelIndex = math.min(#spawnList, selectedModelIndex + 1)
-            print("→ Changed to model #" .. selectedModelIndex)
+            print("→ Model #" .. selectedModelIndex)
         elseif input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.KeypadEnter then
             local item = submenu[selectedIndex]
+            if not item then return end
+
             if item.action == "back" then
                 inSubMenu = false
                 selectedIndex = currentPage
@@ -434,4 +431,4 @@ end)
 createLaserPointer()
 updateMovement()
 UpdateOverlay()
-print("Kyoshade Menu loaded - Laser pointer & Spawn selection are now fixed!")
+print("Kyoshade Menu loaded successfully!")
