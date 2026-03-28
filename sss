@@ -15,34 +15,51 @@ local RootPart = Character:WaitForChild("HumanoidRootPart")
 
 -- ====================== MENU STRUCTURE ======================
 local MainMenu = {
-    {name = "Movement"}, {name = "Visual"}, {name = "Player"},
-    {name = "OP"}, {name = "Fun"}, {name = "Spawn"}, {name = "Remove Menu"}
+    {name = "Movement"},
+    {name = "Visual"},
+    {name = "Player"},
+    {name = "OP"},
+    {name = "Fun"},
+    {name = "Spawn"},
+    {name = "Remove Menu"}
 }
 
 local SubMenus = {
-    Movement = {{name = "Speed", value = 50, action = "number", min = 16, max = 500, step = 10},
-                {name = "Fly", value = false, action = "toggle"},
-                {name = "NoClip", value = false, action = "toggle"},
-                {name = "JumpPower", value = 100, action = "number", min = 50, max = 1000, step = 25},
-                {name = "Back", action = "back"}},
-    Visual = {{name = "ESP", value = false, action = "toggle"},
-              {name = "FullBright", value = false, action = "toggle"},
-              {name = "NoFog", value = false, action = "toggle"},
-              {name = "Back", action = "back"}},
-    Player = {{name = "Godmode", value = false, action = "toggle"},
-              {name = "Infinite Jump", value = false, action = "toggle"},
-              {name = "Back", action = "back"}},
-    OP = {{name = "Kill All", action = "button"},
-          {name = "Server Crash", action = "button"},
-          {name = "Back", action = "back"}},
-    Fun = {{name = "Rainbow Chat", value = false, action = "toggle"},
-           {name = "Spin", value = false, action = "toggle"},
-           {name = "Back", action = "back"}},
-    Spawn = {{name = "Spawn at Mouse", action = "spawn"},
-             {name = "Back", action = "back"}}
+    Movement = {
+        {name = "Speed", value = 50, action = "number", min = 16, max = 500, step = 10},
+        {name = "Fly", value = false, action = "toggle"},
+        {name = "NoClip", value = false, action = "toggle"},
+        {name = "JumpPower", value = 100, action = "number", min = 50, max = 1000, step = 25},
+        {name = "Back", action = "back"}
+    },
+    Visual = {
+        {name = "ESP", value = false, action = "toggle"},
+        {name = "FullBright", value = false, action = "toggle"},
+        {name = "NoFog", value = false, action = "toggle"},
+        {name = "Back", action = "back"}
+    },
+    Player = {
+        {name = "Godmode", value = false, action = "toggle"},
+        {name = "Infinite Jump", value = false, action = "toggle"},
+        {name = "Back", action = "back"}
+    },
+    OP = {
+        {name = "Kill All", action = "button"},
+        {name = "Server Crash", action = "button"},
+        {name = "Back", action = "back"}
+    },
+    Fun = {
+        {name = "Rainbow Chat", value = false, action = "toggle"},
+        {name = "Spin", value = false, action = "toggle"},
+        {name = "Back", action = "back"}
+    },
+    Spawn = {
+        {name = "Spawn at Mouse", action = "spawn"},
+        {name = "Back", action = "back"}
+    }
 }
 
--- Menu & Spawn State
+-- Menu State
 local currentPage = 1
 local inSubMenu = false
 local currentSub = ""
@@ -55,7 +72,7 @@ local flyConnection, noclipConnection, infJumpConnection, spinConnection = nil, 
 local isFlying, isNoclipping, isSpinning = false, false, false
 local espTags = {}
 
--- ====================== GUI (Clean - NO background) ======================
+-- GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KyoshadeMenu"
 ScreenGui.ResetOnSpawn = false
@@ -76,7 +93,7 @@ Overlay.TextXAlignment = Enum.TextXAlignment.Left
 Overlay.TextYAlignment = Enum.TextYAlignment.Top
 Overlay.Parent = ScreenGui
 
--- ====================== LASER POINTER (Now 100% safe) ======================
+-- Laser Pointer
 local laserBeam, laserDot = nil, nil
 
 local function createLaserPointer()
@@ -105,7 +122,6 @@ local function createLaserPointer()
     laserDot.Parent = Workspace
 end
 
--- Safe laser update
 RunService.RenderStepped:Connect(function()
     if not (inSubMenu and currentSub == "Spawn") then
         if laserBeam and laserBeam.Parent then laserBeam.Visible = false end
@@ -119,7 +135,6 @@ RunService.RenderStepped:Connect(function()
         local params = RaycastParams.new()
         params.FilterDescendantsInstances = {Character}
         params.FilterType = Enum.RaycastFilterType.Exclude
-
         local result = Workspace:Raycast(origin, direction, params)
         if result then
             local hit = result.Position
@@ -127,7 +142,6 @@ RunService.RenderStepped:Connect(function()
             laserBeam.Size = Vector3.new(0.1, 0.1, dist)
             laserBeam.CFrame = CFrame.lookAt(origin, hit) * CFrame.new(0, 0, -dist/2)
             laserDot.Position = hit + result.Normal * 0.4
-
             laserBeam.Visible = true
             laserDot.Visible = true
         else
@@ -137,7 +151,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ====================== WORKING CHEATS ======================
+-- Cheats
 local function updateMovement()
     if Humanoid then
         Humanoid.WalkSpeed = SubMenus.Movement[1].value
@@ -261,11 +275,13 @@ local function toggleSpin(enable)
     end
 end
 
--- ====================== SPAWN (Fixed & Improved) ======================
+-- Spawn
 local function getAllModels()
     spawnList = {}
     for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
-        if v:IsA("Model") and v.PrimaryPart then table.insert(spawnList, v) end
+        if v:IsA("Model") and v.PrimaryPart then
+            table.insert(spawnList, v)
+        end
     end
     for _, v in ipairs(Workspace:GetDescendants()) do
         if v:IsA("Model") and v.PrimaryPart and not v:FindFirstAncestor("Players") then
@@ -276,7 +292,10 @@ local function getAllModels()
 end
 
 local function spawnModelAtMouse()
-    if #spawnList == 0 then print("No models to spawn!") return end
+    if #spawnList == 0 then 
+        print("No models to spawn!") 
+        return 
+    end
     local model = spawnList[selectedModelIndex]
     local clone = model:Clone()
     clone.Parent = Workspace
@@ -285,7 +304,7 @@ local function spawnModelAtMouse()
     print("✅ Spawned: " .. model.Name)
 end
 
--- ====================== UPDATE ======================
+-- Update
 local function UpdateOverlay()
     local text = "KYOSHADE MENU\n"
     text ..= "══════════════════════════════\n\n"
@@ -298,13 +317,19 @@ local function UpdateOverlay()
     else
         text ..= currentSub:upper() .. "\n"
         text ..= "══════════════════════════════\n\n"
+
         local submenu = SubMenus[currentSub]
-        for i, item in ipairs(submenu) do
-            local prefix = (i == selectedIndex) and "► " or "  "
-            local valueStr = ""
-            if item.action == "toggle" then valueStr = item.value and " [ON]" or " [OFF]" end
-            if item.action == "number" then valueStr = " : " .. item.value end
-            text ..= prefix .. item.name .. valueStr .. "\n"
+        if submenu then
+            for i, item in ipairs(submenu) do
+                local prefix = (i == selectedIndex) and "► " or "  "
+                local valueStr = ""
+                if item.action == "toggle" then
+                    valueStr = item.value and " [ON]" or " [OFF]"
+                elseif item.action == "number" then
+                    valueStr = " : " .. item.value
+                end
+                text ..= prefix .. item.name .. valueStr .. "\n"
+            end
         end
 
         if currentSub == "Spawn" then
@@ -321,7 +346,7 @@ local function UpdateOverlay()
     Overlay.Text = text
 end
 
--- ====================== INPUT ======================
+-- Input
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
 
@@ -348,19 +373,18 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         end
     else
         local submenu = SubMenus[currentSub]
+        if not submenu then return end
 
         if input.KeyCode == Enum.KeyCode.Up then
             selectedIndex = math.max(1, selectedIndex - 1)
         elseif input.KeyCode == Enum.KeyCode.Down then
             selectedIndex = math.min(#submenu, selectedIndex + 1)
-
         elseif input.KeyCode == Enum.KeyCode.Left and currentSub == "Spawn" then
             selectedModelIndex = math.max(1, selectedModelIndex - 1)
             print("← Changed to model #" .. selectedModelIndex)
         elseif input.KeyCode == Enum.KeyCode.Right and currentSub == "Spawn" then
             selectedModelIndex = math.min(#spawnList, selectedModelIndex + 1)
             print("→ Changed to model #" .. selectedModelIndex)
-
         elseif input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.KeypadEnter then
             local item = submenu[selectedIndex]
             if item.action == "back" then
@@ -406,7 +430,7 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
     updateMovement()
 end)
 
--- ====================== START ======================
+-- Start
 createLaserPointer()
 updateMovement()
 UpdateOverlay()
