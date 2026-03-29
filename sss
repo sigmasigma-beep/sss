@@ -1,434 +1,375 @@
+
+
+loadstring([[
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local RS = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
+local Rep = game:GetService("ReplicatedStorage")
+local SS = game:GetService("ServerStorage")
+local WS = game:GetService("Workspace")
 
-local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
-local Camera = Workspace.CurrentCamera
+local LP = Players.LocalPlayer
+local Mouse = LP:GetMouse()
+local Cam = WS.CurrentCamera
 
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local Humanoid = Character:WaitForChild("Humanoid")
-local RootPart = Character:WaitForChild("HumanoidRootPart")
+local Char, Hum, Root
+local function setupChar(c)
+    Char = c
+    Hum = c:WaitForChild("Humanoid", 5)
+    Root = c:WaitForChild("HumanoidRootPart", 5)
+end
+if LP.Character then setupChar(LP.Character) end
+LP.CharacterAdded:Connect(setupChar)
 
--- ====================== MENU ======================
-local MainMenu = {
-    {name = "Movement"}, {name = "Visual"}, {name = "Player"},
-    {name = "OP"}, {name = "Fun"}, {name = "Spawn"}, {name = "Remove Menu"}
+-- STATES
+_G.Fly = false
+_G.Noclip = false
+_G.InfJump = false
+_G.Spin = false
+_G.Aimbot = false
+_G.SilentAim = false
+_G.ESP = false
+_G.AutoClick = false
+_G.Godmode = false
+_G.HighJump = false
+_G.Wallhack = false
+_G.Fling = false
+
+local values = {
+    Speed = 70,
+    JumpPower = 100,
+    FlySpeed = 120,
+    FOV = 80
 }
 
-local SubMenus = {
-    Movement = {
-        {name = "Speed", value = 50, action = "number", min = 16, max = 500, step = 10},
-        {name = "Fly", value = false, action = "toggle"},
-        {name = "NoClip", value = false, action = "toggle"},
-        {name = "JumpPower", value = 100, action = "number", min = 50, max = 1000, step = 25},
-        {name = "Back", action = "back"}
-    },
-    Visual = {
-        {name = "ESP", value = false, action = "toggle"},
-        {name = "FullBright", value = false, action = "toggle"},
-        {name = "NoFog", value = false, action = "toggle"},
-        {name = "Back", action = "back"}
-    },
-    Player = {
-        {name = "Godmode", value = false, action = "toggle"},
-        {name = "Infinite Jump", value = false, action = "toggle"},
-        {name = "Back", action = "back"}
-    },
-    OP = {
-        {name = "Kill All", action = "button"},
-        {name = "Server Crash", action = "button"},
-        {name = "Back", action = "back"}
-    },
-    Fun = {
-        {name = "Rainbow Chat", value = false, action = "toggle"},
-        {name = "Spin", value = false, action = "toggle"},
-        {name = "Back", action = "back"}
-    },
-    Spawn = {
-        {name = "Spawn at Mouse", action = "spawn"},
-        {name = "Back", action = "back"}
-    }
-}
-
--- State
-local currentPage = 1
-local inSubMenu = false
-local currentSub = ""
-local selectedIndex = 1
-local spawnList = {}
-local selectedModelIndex = 1
-
--- Cheat state
-local flyConnection, noclipConnection, infJumpConnection, spinConnection = nil, nil, nil, nil
-local isFlying, isNoclipping, isSpinning = false, false, false
-local espTags = {}
+local menuMode = true
 
 -- GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KyoshadeMenu"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 999
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+local gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Parent = LP:WaitForChild("PlayerGui")
 
-local Overlay = Instance.new("TextLabel")
-Overlay.Size = UDim2.new(0, 540, 0, 520)
-Overlay.Position = UDim2.new(0, 30, 0, 30)
-Overlay.BackgroundTransparency = 1
-Overlay.TextColor3 = Color3.fromRGB(0, 255, 140)
-Overlay.TextStrokeTransparency = 0
-Overlay.TextStrokeColor3 = Color3.fromRGB(0, 80, 0)
-Overlay.Font = Enum.Font.Code
-Overlay.TextSize = 17
-Overlay.RichText = true
-Overlay.TextXAlignment = Enum.TextXAlignment.Left
-Overlay.TextYAlignment = Enum.TextYAlignment.Top
-Overlay.Parent = ScreenGui
+local txt = Instance.new("TextLabel", gui)
+txt.Size = UDim2.new(0, 560, 0, 520)
+txt.Position = UDim2.new(0, 30, 0, 30)
+txt.BackgroundTransparency = 1
+txt.TextColor3 = Color3.fromRGB(0, 255, 160)
+txt.Font = Enum.Font.Code
+txt.TextSize = 17
+txt.TextXAlignment = Enum.TextXAlignment.Left
+txt.TextYAlignment = Enum.TextYAlignment.Top
+txt.RichText = true  -- ENABLED FOR GREEN/OFF + BLUE/ON COLORS
 
--- Laser
-local laserBeam, laserDot = nil, nil
+local page = 1
+local subOpen = false
+local subName = ""
+local sel = 1
 
-local function createLaserPointer()
-    if laserBeam then laserBeam:Destroy() end
-    if laserDot then laserDot:Destroy() end
+local Main = {"Movement", "Combat", "Visual", "Fun", "Extras", "Spawn", "Settings", "Remove"}
+local Sub = {
+    Movement = {"Speed", "JumpPower", "FlySpeed", "FOV", "Fly", "NoClip", "Back"},
+    Combat = {"Aimbot", "Silent Aim", "Back"},
+    Visual = {"ESP", "Wallhack", "Back"},
+    Fun = {"Spin", "Infinite Jump", "High Jump", "Fling", "Back"},
+    Extras = {"Godmode", "Back"},
+    Spawn = {"Spawn", "Back"},
+    Settings = {"Auto Clicker", "Back"}
+}
 
-    laserBeam = Instance.new("Part")
-    laserBeam.Anchored = true
-    laserBeam.CanCollide = false
-    laserBeam.Transparency = 0.3
-    laserBeam.Color = Color3.fromRGB(255, 0, 0)
-    laserBeam.Material = Enum.Material.Neon
-    laserBeam.Size = Vector3.new(0.1, 0.1, 1)
-    laserBeam.Parent = Workspace
+-- SPAWN SYSTEM (fixed - no collision)
+local models = {}
+local modelIndex = 1
+local preview
 
-    laserDot = Instance.new("Part")
-    laserDot.Anchored = true
-    laserDot.CanCollide = false
-    laserDot.Transparency = 0.2
-    laserDot.Color = Color3.fromRGB(255, 80, 80)
-    laserDot.Material = Enum.Material.Neon
-    laserDot.Shape = Enum.PartType.Ball
-    laserDot.Size = Vector3.new(0.8, 0.8, 0.8)
-    laserDot.Parent = Workspace
+local function getModels()
+    models = {}
+    for _, container in {Rep, SS, WS} do
+        for _, v in ipairs(container:GetDescendants()) do
+            if v:IsA("Model") and v.PrimaryPart then
+                table.insert(models, v)
+            end
+        end
+    end
+    modelIndex = 1
 end
 
-RunService.RenderStepped:Connect(function()
-    if not (inSubMenu and currentSub == "Spawn") then
-        if laserBeam and laserBeam.Parent then laserBeam.Visible = false end
-        if laserDot and laserDot.Parent then laserDot.Visible = false end
-        return
-    end
-    if laserBeam and laserDot and laserBeam.Parent and laserDot.Parent then
-        local origin = Camera.CFrame.Position
-        local direction = (Mouse.Hit.Position - origin).Unit * 1000
-        local params = RaycastParams.new()
-        params.FilterDescendantsInstances = {Character}
-        params.FilterType = Enum.RaycastFilterType.Exclude
-        local result = Workspace:Raycast(origin, direction, params)
-        if result then
-            local hit = result.Position
-            local dist = (hit - origin).Magnitude
-            laserBeam.Size = Vector3.new(0.1, 0.1, dist)
-            laserBeam.CFrame = CFrame.lookAt(origin, hit) * CFrame.new(0, 0, -dist/2)
-            laserDot.Position = hit + result.Normal * 0.4
-            laserBeam.Visible = true
-            laserDot.Visible = true
-        else
-            laserBeam.Visible = false
-            laserDot.Visible = false
+local function makePreview()
+    if preview then preview:Destroy() end
+    local m = models[modelIndex]
+    if not m then return end
+    preview = m:Clone()
+    preview.Parent = WS
+    for _, p in ipairs(preview:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.Transparency = 0.6
+            p.Material = Enum.Material.ForceField
+            p.CanCollide = false
+            p.Massless = true
+            p.Anchored = true
         end
+    end
+end
+
+local function spawnModel()
+    local m = models[modelIndex]
+    if not m then return end
+    local c = m:Clone()
+    c.Parent = WS
+    if c.PrimaryPart then
+        c:SetPrimaryPartCFrame(CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0)))
+    end
+end
+
+-- ESP
+local espBoxes = {}
+local function updateESP()
+    for _, p in Players:GetPlayers() do
+        if p == LP or not p.Character then continue end
+        local root = p.Character:FindFirstChild("HumanoidRootPart")
+        if not root then continue end
+        if not espBoxes[p] then
+            local box = Instance.new("BoxHandleAdornment")
+            box.Size = Vector3.new(4,6,2)
+            box.AlwaysOnTop = true
+            box.ZIndex = 10
+            box.Adornee = root
+            box.Parent = root
+            espBoxes[p] = box
+        end
+        local box = espBoxes[p]
+        if box and box:IsA("BoxHandleAdornment") then
+            box.Visible = _G.ESP or _G.Wallhack
+            box.Color3 = _G.Wallhack and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(0, 255, 160)
+        end
+    end
+end
+
+-- Touch Fling
+local hiddenfling = false
+local function startFling()
+    while hiddenfling do
+        RS.Heartbeat:Wait()
+        if Root then
+            local vel = Root.Velocity
+            Root.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+            RS.RenderStepped:Wait()
+            Root.Velocity = vel
+            RS.Stepped:Wait()
+            Root.Velocity = vel + Vector3.new(0, 0.1, 0)
+        end
+    end
+end
+
+-- Main Loop
+RS.RenderStepped:Connect(function()
+    if preview and preview.PrimaryPart and subOpen and subName == "Spawn" then
+        preview:SetPrimaryPartCFrame(CFrame.new(Mouse.Hit.Position + Vector3.new(0, 2, 0)))
+    end
+
+    if _G.Fly and Root then
+        local bv = Root:FindFirstChild("BV") or Instance.new("BodyVelocity", Root)
+        bv.Name = "BV"
+        bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+        local move = Vector3.zero
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move += Cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move -= Cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move -= Cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move += Cam.CFrame.RightVector end
+        bv.Velocity = move * values.FlySpeed
+    elseif Root and Root:FindFirstChild("BV") then
+        Root.BV:Destroy()
+    end
+
+    if _G.Noclip and Char then
+        for _, v in ipairs(Char:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+            end
+        end
+    end
+
+    if _G.Spin and Root then
+        Root.CFrame *= CFrame.Angles(0, math.rad(8), 0)
+    end
+
+    if _G.Aimbot then
+        local target = nil
+        local dist = math.huge
+        for _, p in Players:GetPlayers() do
+            if p ~= LP and p.Character and p.Character:FindFirstChild("Head") then
+                local pos, onscreen = Cam:WorldToViewportPoint(p.Character.Head.Position)
+                if onscreen then
+                    local d = (Vector2.new(pos.X, pos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                    if d < dist then dist = d target = p.Character.Head end
+                end
+            end
+        end
+        if target then
+            Cam.CFrame = CFrame.new(Cam.CFrame.Position, target.Position)
+        end
+    end
+
+    if _G.AutoClick then mouse1click() end
+    updateESP()
+
+    Cam.FieldOfView = values.FOV
+
+    if _G.Godmode and Hum then
+        Hum.MaxHealth = 99999
+        Hum.Health = 99999
+    end
+
+    if _G.HighJump and Hum then
+        Hum.JumpPower = values.JumpPower + 60
     end
 end)
 
--- Cheats
-local function updateMovement()
-    if Humanoid then
-        Humanoid.WalkSpeed = SubMenus.Movement[1].value
-        Humanoid.JumpPower = SubMenus.Movement[4].value
+UIS.JumpRequest:Connect(function()
+    if _G.InfJump and Hum then
+        Hum:ChangeState(Enum.HumanoidStateType.Jumping)
     end
-end
+end)
 
-local function startFly()
-    if isFlying then return end
-    isFlying = true
-    Humanoid.PlatformStand = true
-    flyConnection = RunService.RenderStepped:Connect(function()
-        if not RootPart then return end
-        local move = Vector3.new()
-        local cam = Workspace.CurrentCamera
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move -= Vector3.new(0,1,0) end
-        if move.Magnitude > 0 then
-            RootPart.Velocity = move.Unit * SubMenus.Movement[1].value * 2.5
-        else
-            RootPart.Velocity = Vector3.new()
-        end
-    end)
-end
-
-local function stopFly()
-    isFlying = false
-    if flyConnection then flyConnection:Disconnect() end
-    if Humanoid then Humanoid.PlatformStand = false end
-end
-
-local function startNoClip()
-    if isNoclipping then return end
-    isNoclipping = true
-    noclipConnection = RunService.Stepped:Connect(function()
-        if Character then
-            for _, part in ipairs(Character:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
-            end
-        end
-    end)
-end
-
-local function stopNoClip()
-    isNoclipping = false
-    if noclipConnection then noclipConnection:Disconnect() end
-    if Character then
-        for _, part in ipairs(Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                part.CanCollide = true
-            end
-        end
-    end
-end
-
-local function enableInfiniteJump()
-    if infJumpConnection then return end
-    infJumpConnection = UserInputService.JumpRequest:Connect(function()
-        if Humanoid then Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end)
-end
-
-local function disableInfiniteJump()
-    if infJumpConnection then infJumpConnection:Disconnect() infJumpConnection = nil end
-end
-
-local function toggleGodmode(enable)
-    if Humanoid then
-        Humanoid.MaxHealth = enable and 1000000000 or 100
-        Humanoid.Health = enable and 1000000000 or 100
-    end
-end
-
-local function toggleFullBright(enable)
-    Lighting.Brightness = enable and 3 or 1
-    Lighting.GlobalShadows = not enable
-end
-
-local function toggleNoFog(enable)
-    Lighting.FogEnd = enable and 100000 or 100
-end
-
-local function toggleESP(enable)
-    for _, tag in ipairs(espTags) do tag:Destroy() end
-    espTags = {}
-    if not enable then return end
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Head") then
-            local bill = Instance.new("BillboardGui")
-            bill.Adornee = plr.Character.Head
-            bill.Size = UDim2.new(0,200,0,50)
-            bill.StudsOffset = Vector3.new(0,3,0)
-            bill.AlwaysOnTop = true
-            bill.Parent = plr.Character.Head
-            local txt = Instance.new("TextLabel", bill)
-            txt.Size = UDim2.new(1,0,1,0)
-            txt.BackgroundTransparency = 1
-            txt.Text = plr.Name
-            txt.TextColor3 = Color3.fromRGB(0,255,100)
-            txt.TextStrokeTransparency = 0
-            txt.Font = Enum.Font.Code
-            txt.TextSize = 14
-            table.insert(espTags, bill)
-        end
-    end
-end
-
-local function toggleSpin(enable)
-    if spinConnection then spinConnection:Disconnect() spinConnection = nil end
-    isSpinning = enable
-    if enable and RootPart then
-        spinConnection = RunService.Heartbeat:Connect(function()
-            if RootPart then RootPart.AssemblyAngularVelocity = Vector3.new(0, 80, 0) end
-        end)
-    elseif RootPart then
-        RootPart.AssemblyAngularVelocity = Vector3.new()
-    end
-end
-
--- Spawn
-local function getAllModels()
-    spawnList = {}
-    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
-        if v:IsA("Model") and v.PrimaryPart then table.insert(spawnList, v) end
-    end
-    for _, v in ipairs(Workspace:GetDescendants()) do
-        if v:IsA("Model") and v.PrimaryPart and not v:FindFirstAncestor("Players") then
-            table.insert(spawnList, v)
-        end
-    end
-    print("Found " .. #spawnList .. " models")
-end
-
-local function spawnModelAtMouse()
-    if #spawnList == 0 then 
-        print("No models to spawn!") 
-        return 
-    end
-    local model = spawnList[selectedModelIndex]
-    if not model or not model.PrimaryPart then return end
-    local clone = model:Clone()
-    clone.Parent = Workspace
-    local pos = Mouse.Hit.Position + Vector3.new(0, 5, 0)
-    clone:SetPrimaryPartCFrame(CFrame.new(pos))
-    print("✅ Spawned: " .. model.Name)
-end
-
--- Update
-local function UpdateOverlay()
-    local text = "KYOSHADE MENU\n"
-    text ..= "══════════════════════════════\n\n"
-
-    if not inSubMenu then
-        for i, item in ipairs(MainMenu) do
-            local prefix = (i == currentPage) and "► " or "  "
-            text ..= prefix .. item.name .. "\n"
+-- Menu Draw (NO BOOL TEXT → GREEN if OFF, BLUE if ON)
+local function draw()
+    local modeText = menuMode and " [MENU MODE: ON]" or " [MENU MODE: OFF - Press Z]"
+    local t = "   KYOSHADE MENU" .. modeText .. "\n\n"
+    
+    if not subOpen then
+        for i, v in ipairs(Main) do
+            t ..= (i == page and " ► " or "   ") .. v .. "\n"
         end
     else
-        text ..= currentSub:upper() .. "\n"
-        text ..= "══════════════════════════════\n\n"
-
-        local submenu = SubMenus[currentSub]
-        if submenu then
-            for i, item in ipairs(submenu) do
-                local prefix = (i == selectedIndex) and "► " or "  "
-                local valueStr = ""
-                if item.action == "toggle" then
-                    valueStr = item.value and " [ON]" or " [OFF]"
-                elseif item.action == "number" then
-                    valueStr = " : " .. item.value
+        t ..= "   " .. subName .. "\n\n"
+        for i, v in ipairs(Sub[subName] or {}) do
+            local val = (v == "Speed" or v == "JumpPower" or v == "FlySpeed" or v == "FOV") and values[v] or
+                        (v == "Fly" and _G.Fly) or (v == "NoClip" and _G.Noclip) or (v == "Spin" and _G.Spin) or
+                        (v == "Infinite Jump" and _G.InfJump) or (v == "High Jump" and _G.HighJump) or
+                        (v == "Fling" and _G.Fling) or (v == "Aimbot" and _G.Aimbot) or (v == "Silent Aim" and _G.SilentAim) or
+                        (v == "ESP" and _G.ESP) or (v == "Wallhack" and _G.Wallhack) or (v == "Godmode" and _G.Godmode) or
+                        (v == "Auto Clicker" and _G.AutoClick)
+            
+            local prefix = (i == sel and " ► " or "   ")
+            local colorTag = ""
+            local extra = ""
+            
+            if val ~= nil then
+                if type(val) == "boolean" then
+                    -- TOGGLE: color only the name (green = OFF, blue = ON), no [true/false]
+                    local col = val and "#0000FF" or "#00FF00"
+                    colorTag = '<font color="' .. col .. '">'
+                    extra = "</font>"
+                else
+                    -- SLIDER: keep number in brackets, default color
+                    extra = " [" .. tostring(val) .. "]"
                 end
-                text ..= prefix .. item.name .. valueStr .. "\n"
             end
+            
+            t ..= prefix .. colorTag .. v .. extra .. "\n"
         end
-
-        if currentSub == "Spawn" then
-            local selectedName = spawnList[selectedModelIndex] and spawnList[selectedModelIndex].Name or "None"
-            text ..= "\nSelected: " .. selectedName .. "\n"
-            text ..= "Models (" .. #spawnList .. "):\n"
-            for i, model in ipairs(spawnList) do
-                local prefix = (i == selectedModelIndex) and "→ " or "  "
-                text ..= prefix .. model.Name .. "\n"
-            end
-            text ..= "\n← → Change Model | Enter / Left Click = Spawn"
+        if subName == "Spawn" then
+            t ..= "\n   Current: " .. (models[modelIndex] and models[modelIndex].Name or "None") .. " (" .. modelIndex .. "/" .. #models .. ")"
         end
     end
-    Overlay.Text = text
+    txt.Text = t
 end
 
--- Input
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
+-- Input (MENU KEY = Z)
+UIS.InputBegan:Connect(function(i, g)
+    if g then return end
 
-    if not inSubMenu then
-        if input.KeyCode == Enum.KeyCode.Up then
-            currentPage = math.max(1, currentPage - 1)
-        elseif input.KeyCode == Enum.KeyCode.Down then
-            currentPage = math.min(#MainMenu, currentPage + 1)
-        elseif input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.KeypadEnter then
-            local name = MainMenu[currentPage].name
-            if name == "Remove Menu" then
-                if laserBeam then laserBeam:Destroy() end
-                if laserDot then laserDot:Destroy() end
-                ScreenGui:Destroy()
-                return
-            end
-            inSubMenu = true
-            currentSub = name
-            selectedIndex = 1
-            if currentSub == "Spawn" then
-                getAllModels()
-                selectedModelIndex = math.max(1, math.min(selectedModelIndex, #spawnList))
+    if i.KeyCode == Enum.KeyCode.Z then
+        menuMode = not menuMode
+        draw()
+        return
+    end
+
+    if not menuMode then return end
+
+    if not subOpen then
+        if i.KeyCode == Enum.KeyCode.W then page = math.max(1, page-1)
+        elseif i.KeyCode == Enum.KeyCode.S then page = math.min(#Main, page+1)
+        elseif i.KeyCode == Enum.KeyCode.E then
+            if Main[page] == "Remove" then gui:Destroy() return end
+            subOpen = true
+            subName = Main[page]
+            sel = 1
+            if subName == "Spawn" then
+                getModels()
+                makePreview()
             end
         end
     else
-        local submenu = SubMenus[currentSub]
-        if not submenu then 
-            inSubMenu = false 
-            UpdateOverlay()
-            return 
+        if i.KeyCode == Enum.KeyCode.W then sel = math.max(1, sel-1)
+        elseif i.KeyCode == Enum.KeyCode.S then sel = math.min(#Sub[subName], sel+1)
+        elseif i.KeyCode == Enum.KeyCode.A then
+            local item = Sub[subName][sel]
+            if item == "Speed" then values.Speed = math.max(16, values.Speed - 10)
+            elseif item == "JumpPower" then values.JumpPower = math.max(0, values.JumpPower - 10)
+            elseif item == "FlySpeed" then values.FlySpeed = math.max(50, values.FlySpeed - 10)
+            elseif item == "FOV" then values.FOV = math.max(50, values.FOV - 5) end
+        elseif i.KeyCode == Enum.KeyCode.D then
+            local item = Sub[subName][sel]
+            if item == "Speed" then values.Speed += 10
+            elseif item == "JumpPower" then values.JumpPower += 10
+            elseif item == "FlySpeed" then values.FlySpeed += 10
+            elseif item == "FOV" then values.FOV = math.min(120, values.FOV + 5) end
+        elseif i.KeyCode == Enum.KeyCode.E then
+            local item = Sub[subName][sel]
+            if item == "Back" then
+                subOpen = false
+                if preview then preview:Destroy() preview = nil end
+            elseif item == "Spawn" then
+                spawnModel()
+            else
+                local key = item == "Silent Aim" and "SilentAim" or item == "Infinite Jump" and "InfJump" or item == "High Jump" and "HighJump" or item == "Fling" and "Fling" or item == "Auto Clicker" and "AutoClick" or item
+                if _G[key] ~= nil then
+                    _G[key] = not _G[key]
+                    if key == "Fling" then
+                        hiddenfling = _G.Fling
+                        if hiddenfling then
+                            spawn(startFling)
+                        end
+                    end
+                end
+            end
         end
 
-        if input.KeyCode == Enum.KeyCode.Up then
-            selectedIndex = math.max(1, selectedIndex - 1)
-        elseif input.KeyCode == Enum.KeyCode.Down then
-            selectedIndex = math.min(#submenu, selectedIndex + 1)
-        elseif input.KeyCode == Enum.KeyCode.Left and currentSub == "Spawn" then
-            selectedModelIndex = math.max(1, selectedModelIndex - 1)
-            print("← Model #" .. selectedModelIndex)
-        elseif input.KeyCode == Enum.KeyCode.Right and currentSub == "Spawn" then
-            selectedModelIndex = math.min(#spawnList, selectedModelIndex + 1)
-            print("→ Model #" .. selectedModelIndex)
-        elseif input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.KeypadEnter then
-            local item = submenu[selectedIndex]
-            if not item then return end
-
-            if item.action == "back" then
-                inSubMenu = false
-                selectedIndex = currentPage
-            elseif item.action == "toggle" then
-                item.value = not item.value
-                if currentSub == "Movement" then
-                    if item.name == "Fly" then item.value and startFly() or stopFly() end
-                    if item.name == "NoClip" then item.value and startNoClip() or stopNoClip() end
-                elseif currentSub == "Player" then
-                    if item.name == "Godmode" then toggleGodmode(item.value) end
-                    if item.name == "Infinite Jump" then item.value and enableInfiniteJump() or disableInfiniteJump() end
-                elseif currentSub == "Visual" then
-                    if item.name == "ESP" then toggleESP(item.value) end
-                    if item.name == "FullBright" then toggleFullBright(item.value) end
-                    if item.name == "NoFog" then toggleNoFog(item.value) end
-                elseif currentSub == "Fun" then
-                    if item.name == "Spin" then toggleSpin(item.value) end
-                end
-            elseif item.action == "number" then
-                item.value = math.min(item.max, item.value + item.step)
-                if item.value < item.min then item.value = item.min end
-                updateMovement()
-            elseif item.action == "spawn" then
-                spawnModelAtMouse()
+        if subName == "Spawn" then
+            if i.KeyCode == Enum.KeyCode.One then
+                modelIndex = math.max(1, modelIndex - 1)
+                makePreview()
+            elseif i.KeyCode == Enum.KeyCode.Two then
+                modelIndex = math.min(#models, modelIndex + 1)
+                makePreview()
             end
         end
     end
-    UpdateOverlay()
+
+    if Hum then
+        Hum.WalkSpeed = values.Speed
+        if not _G.HighJump then Hum.JumpPower = values.JumpPower end
+    end
+    draw()
 end)
 
 Mouse.Button1Down:Connect(function()
-    if inSubMenu and currentSub == "Spawn" and #spawnList > 0 then
-        spawnModelAtMouse()
+    if subOpen and subName == "Spawn" then
+        spawnModel()
     end
 end)
 
-LocalPlayer.CharacterAdded:Connect(function(newChar)
-    Character = newChar
-    Humanoid = newChar:WaitForChild("Humanoid")
-    RootPart = newChar:WaitForChild("HumanoidRootPart")
-    updateMovement()
-end)
+-- Lighting
+Lighting.Brightness = 2
+Lighting.ClockTime = 14
+Lighting.FogEnd = 100000
 
--- Start
-createLaserPointer()
-updateMovement()
-UpdateOverlay()
-print("Kyoshade Menu loaded successfully!")
+draw()
+print("🔥 KYOSHADE v7 LOADED pookie ❤️")
+print("Menu key is now Z")
+print("Toggles are GREEN when OFF and BLUE when ON (no more [bool])")
+print("Spawn preview should no longer push back")
+print("Noclip improved | Fling uses the strong touch fling")
+print("Press Z to toggle Menu Mode | 1/2 to change models in Spawn")
+]])() 
